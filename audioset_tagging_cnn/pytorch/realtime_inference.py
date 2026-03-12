@@ -8,9 +8,7 @@ import torch
 import sounddevice as sd
 from collections import deque
 import threading
-import noisereduce as nr
 
-from utilities import create_folder, get_filename
 from models import *
 from pytorch_utils import move_data_to_device
 import config
@@ -33,6 +31,17 @@ def realtime_audio_tagging(args):
     
     classes_num = config.classes_num
     labels = config.labels
+
+    noise_reducer = None
+    if args.anc:
+        try:
+            import noisereduce as nr
+            noise_reducer = nr
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "ANC is enabled (--anc), but 'noisereduce' is not installed. "
+                "Install it with: pip install noisereduce"
+            )
 
     # Model
     Model = eval(model_type)
@@ -73,7 +82,7 @@ def realtime_audio_tagging(args):
                     audio_buffer.clear()
                     
                     if args.anc:
-                        audio_chunk = nr.reduce_noise(y=audio_chunk, sr=sample_rate)
+                        audio_chunk = noise_reducer.reduce_noise(y=audio_chunk, sr=sample_rate)
                         
                     if args.play_audio:
                         # Play the chunk out loud (asynchronously)
